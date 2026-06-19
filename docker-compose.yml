@@ -1,0 +1,102 @@
+
+services:
+  # ═══════════════════════════════════════════
+  #  Nginx — Reverse Proxy & Static Frontend
+  # ═══════════════════════════════════════════
+  nginx:
+    image: nginx:alpine
+    container_name: yt-analyzer-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend:/usr/share/nginx/html:ro
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - yt-network
+
+  # ═══════════════════════════════════════════
+  #  FastAPI Backend — Business Logic & APIs
+  # ═══════════════════════════════════════════
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: yt-analyzer-backend
+    restart: unless-stopped
+    environment:
+      - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - CHROMADB_HOST=chromadb
+      - CHROMADB_PORT=8000
+      - DEFAULT_REGION=${DEFAULT_REGION:-US}
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      chromadb:
+        condition: service_started
+    networks:
+      - yt-network
+
+  # ═══════════════════════════════════════════
+  #  Elasticsearch — Full-Text Video Search
+  # ═══════════════════════════════════════════
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: yt-analyzer-elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - cluster.name=yt-analyzer
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks:
+      - yt-network
+
+  # ═══════════════════════════════════════════
+  #  ChromaDB — Vector / Semantic Search
+  # ═══════════════════════════════════════════
+  chromadb:
+    image: chromadb/chroma:0.5.23
+    container_name: yt-analyzer-chromadb
+    restart: unless-stopped
+    environment:
+      - IS_PERSISTENT=TRUE
+      - PERSIST_DIRECTORY=/chroma/chroma
+      - ANONYMIZED_TELEMETRY=FALSE
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    networks:
+      - yt-network
+
+# ═══════════════════════════════════════════
+#  Persistent Volumes
+# ═══════════════════════════════════════════
+volumes:
+  es_data:
+    driver: local
+  chroma_data:
+    driver: local
+
+# ═══════════════════════════════════════════
+#  Internal Network
+# ═══════════════════════════════════════════
+networks:
+  yt-network:
+    driver: bridge
