@@ -111,6 +111,37 @@
             <!-- Views are rendered here by the router -->
         </div>
 
+        <!-- ═══ Backend Offline Banner ═══ -->
+        <div id="offline-banner" class="offline-banner" style="display:none;">
+            <div class="offline-banner-content">
+                <div class="offline-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                        <line x1="12" y1="9" x2="12" y2="13"/>
+                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                </div>
+                <h2 class="offline-title">Backend Server Offline</h2>
+                <p class="offline-text">
+                    The API server is not running. Start the backend to use the dashboard.
+                </p>
+                <div class="offline-instructions">
+                    <div class="offline-step">
+                        <span class="offline-step-num">1</span>
+                        <code>cd backend</code>
+                    </div>
+                    <div class="offline-step">
+                        <span class="offline-step-num">2</span>
+                        <code>python -m uvicorn main:app --host 0.0.0.0 --port 8080 --reload</code>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="window.BackendStatus.checkNow()" style="margin-top:20px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+                    Retry Connection
+                </button>
+            </div>
+        </div>
+
     </main>
 
     <!-- ═══ Toast Notifications ═══ -->
@@ -132,32 +163,74 @@
     <script src="js/views/trending.js"></script>
     <script src="js/app.js"></script>
 
-    <!-- API Status Check -->
+    <!-- Backend Status Monitor -->
     <script>
         (function() {
+            let isOnline = false;
+            let wasOnlineBefore = false;
+            let checkInterval = null;
+
             async function checkStatus() {
                 const dot = document.querySelector('#api-status .status-dot');
                 const text = document.querySelector('#api-status .status-text');
+                const banner = document.getElementById('offline-banner');
+                const content = document.getElementById('app-content');
+
                 try {
-                    const resp = await fetch('/api/health');
+                    const resp = await fetch('/api/health', { signal: AbortSignal.timeout(5000) });
                     const data = await resp.json();
-                    if (data.status === 'ok') {
-                        dot.classList.add('online');
-                        dot.classList.remove('degraded');
-                        text.textContent = 'All Systems Online';
+
+                    if (data.status === 'ok' || data.status === 'healthy') {
+                        isOnline = true;
+                        if (dot) { dot.classList.add('online'); dot.classList.remove('degraded'); }
+                        if (text) text.textContent = 'All Systems Online';
+                        if (banner) banner.style.display = 'none';
+                        if (content) content.style.display = '';
+
+                        // If this is a reconnection, reload the current view
+                        if (!wasOnlineBefore) {
+                            wasOnlineBefore = true;
+                            if (window.App) window.App.handleRouteChange();
+                            if (window.Loader) window.Loader.showToast('Backend connected!', 'success');
+                        }
                     } else {
-                        dot.classList.add('degraded');
-                        dot.classList.remove('online');
-                        text.textContent = 'Degraded Mode';
+                        isOnline = true;
+                        if (dot) { dot.classList.add('degraded'); dot.classList.remove('online'); }
+                        if (text) text.textContent = 'Degraded Mode';
+                        if (banner) banner.style.display = 'none';
+                        if (content) content.style.display = '';
+                        wasOnlineBefore = true;
                     }
                 } catch (e) {
-                    dot.classList.remove('online', 'degraded');
-                    text.textContent = 'Backend Offline';
+                    isOnline = false;
+                    if (dot) { dot.classList.remove('online', 'degraded'); }
+                    if (text) text.textContent = 'Backend Offline';
+                    if (banner) banner.style.display = 'flex';
+                    if (content) content.style.display = 'none';
                 }
             }
-            // Check on load and every 30s
-            setTimeout(checkStatus, 1000);
-            setInterval(checkStatus, 30000);
+
+            // Expose globally
+            window.BackendStatus = {
+                get isOnline() { return isOnline; },
+                checkNow: function() {
+                    checkStatus();
+                    // Also show a brief loading state on the button
+                    const btn = document.querySelector('#offline-banner .btn');
+                    if (btn) {
+                        btn.textContent = 'Checking...';
+                        btn.disabled = true;
+                        setTimeout(() => {
+                            btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg> Retry Connection';
+                            btn.disabled = false;
+                        }, 2000);
+                    }
+                }
+            };
+
+            // Check immediately, then every 10s
+            setTimeout(checkStatus, 500);
+            checkInterval = setInterval(checkStatus, 10000);
         })();
     </script>
 
