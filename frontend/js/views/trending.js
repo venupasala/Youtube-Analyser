@@ -36,19 +36,20 @@
 
   function renderTrending(container) {
     container.innerHTML = `
-      <div class="view-section animate-in">
-        <div class="section-header" style="margin-bottom:8px;">
-          <h2 class="section-title">
-            <i data-lucide="trending-up" style="width:24px;height:24px;display:inline;vertical-align:middle;margin-right:8px;color:var(--primary);"></i>
-            Trending Videos
-          </h2>
+      <div class="page-hero page-hero-compact animate-in">
+        <div class="page-hero-glow accent-orange"></div>
+        <div class="page-hero-content">
+          <div class="page-hero-badge"><i data-lucide="flame"></i> Live from YouTube</div>
+          <h1 class="page-hero-title">Trending Videos</h1>
+          <p class="page-hero-subtitle">
+            Discover what's trending across regions and categories — updated in real time via YouTube Data API.
+          </p>
         </div>
-        <p style="color:var(--text-secondary);font-size:0.9375rem;margin-bottom:20px;">
-          Discover what's trending on YouTube across different regions and categories
-        </p>
+      </div>
 
-        <div style="margin-bottom:16px;">
-          <div class="filter-label" style="margin-bottom:8px;">Region</div>
+      <div class="filter-panel animate-in animate-in-delay-1">
+        <div class="filter-group">
+          <div class="filter-label">Region</div>
           <div class="filter-row" id="region-filters">
             ${REGIONS.map(r => `
               <button class="region-pill ${r.code === currentRegion ? 'active' : ''}"
@@ -60,8 +61,8 @@
           </div>
         </div>
 
-        <div>
-          <div class="filter-label" style="margin-bottom:8px;">Category</div>
+        <div class="filter-group">
+          <div class="filter-label">Category</div>
           <div class="filter-row" id="category-filters">
             ${CATEGORIES.map(c => `
               <button class="category-pill ${c.id === currentCategory ? 'active' : ''}"

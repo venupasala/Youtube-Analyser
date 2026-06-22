@@ -9,35 +9,44 @@
 
   function renderSearch(container) {
     container.innerHTML = `
-      <div class="view-section animate-in" style="text-align:center;margin-bottom:32px;">
-        <h2 class="section-title" style="margin-bottom:8px;">Search Videos</h2>
-        <p style="color:var(--text-secondary);font-size:0.9375rem;margin-bottom:24px;">
-          Search across indexed videos or find new ones from YouTube
-        </p>
+      <div class="page-hero page-hero-compact animate-in">
+        <div class="page-hero-glow accent-purple"></div>
+        <div class="page-hero-content">
+          <div class="page-hero-badge"><i data-lucide="sparkles"></i> Multi-mode search</div>
+          <h1 class="page-hero-title">Search Videos</h1>
+          <p class="page-hero-subtitle">
+            Full-text, semantic AI, or live YouTube search — find exactly what you need.
+          </p>
+        </div>
+      </div>
 
-        <div class="tab-bar" style="margin:0 auto 24px;">
+      <div class="search-panel animate-in animate-in-delay-1">
+        <div class="tab-bar">
           <button class="tab ${currentTab === 'text' ? 'active' : ''}" data-tab="text" onclick="window.Search.switchTab('text')">
-            <i data-lucide="file-text" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"></i>
+            <i data-lucide="file-text"></i>
             Full-Text
           </button>
           <button class="tab ${currentTab === 'semantic' ? 'active' : ''}" data-tab="semantic" onclick="window.Search.switchTab('semantic')">
-            <i data-lucide="brain" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"></i>
+            <i data-lucide="brain"></i>
             Semantic
           </button>
           <button class="tab ${currentTab === 'youtube' ? 'active' : ''}" data-tab="youtube" onclick="window.Search.switchTab('youtube')">
-            <i data-lucide="youtube" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"></i>
+            <i data-lucide="youtube"></i>
             YouTube
           </button>
         </div>
 
         <div class="large-search-wrapper">
-          <i data-lucide="search" class="search-icon-lg" style="width:20px;height:20px;"></i>
+          <i data-lucide="search" class="search-icon-lg"></i>
           <input type="text"
                  id="search-view-input"
                  class="search-input-lg"
                  placeholder="${getPlaceholder()}"
                  value="${window.VideoCard.escapeHtml(lastQuery)}"
                  onkeydown="if(event.key==='Enter')window.Search.doSearch()">
+          <button class="search-submit-btn" onclick="window.Search.doSearch()">
+            <i data-lucide="arrow-right"></i>
+          </button>
         </div>
       </div>
 

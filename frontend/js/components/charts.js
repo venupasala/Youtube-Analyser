@@ -25,7 +25,7 @@
         legend: {
           labels: {
             color: '#8b8b9e',
-            font: { family: "'Inter', sans-serif", size: 12, weight: 500 },
+            font: { family: "'Plus Jakarta Sans', sans-serif", size: 12, weight: 500 },
             padding: 16,
             usePointStyle: true,
             pointStyleWidth: 10,
@@ -39,8 +39,8 @@
           borderWidth: 1,
           cornerRadius: 8,
           padding: 12,
-          titleFont: { family: "'Inter', sans-serif", size: 13, weight: 600 },
-          bodyFont: { family: "'Inter', sans-serif", size: 12 },
+          titleFont: { family: "'Plus Jakarta Sans', sans-serif", size: 13, weight: 600 },
+          bodyFont: { family: "'Plus Jakarta Sans', sans-serif", size: 12 },
           displayColors: true,
           boxPadding: 4,
         },
@@ -53,7 +53,7 @@
           },
           ticks: {
             color: '#5a5a6e',
-            font: { family: "'Inter', sans-serif", size: 11 },
+            font: { family: "'Plus Jakarta Sans', sans-serif", size: 11 },
           },
           border: { display: false },
         },
@@ -64,7 +64,7 @@
           },
           ticks: {
             color: '#5a5a6e',
-            font: { family: "'Inter', sans-serif", size: 11 },
+            font: { family: "'Plus Jakarta Sans', sans-serif", size: 11 },
             callback: function (value) {
               return window.VideoCard ? window.VideoCard.formatNumber(value) : value;
             },
@@ -289,7 +289,7 @@
             position: 'right',
             labels: {
               color: '#8b8b9e',
-              font: { family: "'Inter', sans-serif", size: 12, weight: 500 },
+              font: { family: "'Plus Jakarta Sans', sans-serif", size: 12, weight: 500 },
               padding: 12,
               usePointStyle: true,
               pointStyleWidth: 10,

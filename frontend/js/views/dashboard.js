@@ -29,14 +29,39 @@
   // --- Welcome screen ---
   function renderWelcome(container) {
     container.innerHTML = `
-      <div class="welcome-container animate-in">
-        <div class="welcome-icon">
-          <i data-lucide="play" style="width:36px;height:36px;color:white;"></i>
+      <div class="page-hero animate-in">
+        <div class="page-hero-glow"></div>
+        <div class="page-hero-content">
+          <div class="welcome-icon">
+            <i data-lucide="bar-chart-3" style="width:32px;height:32px;color:white;"></i>
+          </div>
+          <h1 class="page-hero-title">YouTube Channel Analytics</h1>
+          <p class="page-hero-subtitle">
+            Deep insights into any channel — subscribers, engagement, upload patterns, and video performance in one dashboard.
+          </p>
         </div>
-        <h1 class="welcome-title">YouTube Channel Analyzer</h1>
-        <p class="welcome-subtitle">
-          Enter a YouTube channel URL, @handle, or channel ID in the search bar above to unlock deep analytics, video insights, and performance metrics.
-        </p>
+      </div>
+
+      <div class="feature-grid animate-in animate-in-delay-1">
+        <div class="feature-card">
+          <div class="feature-icon"><i data-lucide="users"></i></div>
+          <h3>Channel Metrics</h3>
+          <p>Subscribers, total views, video count, and engagement rate at a glance.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon accent-purple"><i data-lucide="line-chart"></i></div>
+          <h3>Visual Analytics</h3>
+          <p>Interactive charts for views, uploads, top videos, and category breakdown.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon accent-green"><i data-lucide="search"></i></div>
+          <h3>Smart Search</h3>
+          <p>Full-text and AI semantic search across indexed channel videos.</p>
+        </div>
+      </div>
+
+      <div class="welcome-container animate-in animate-in-delay-2">
+        <p class="welcome-hint">Try a popular channel</p>
         <div class="suggested-channels">
           <button class="suggested-channel" onclick="window.Dashboard.analyzeFromSuggestion('@mkbhd')">@mkbhd</button>
           <button class="suggested-channel" onclick="window.Dashboard.analyzeFromSuggestion('@veritasium')">@veritasium</button>
@@ -98,6 +123,24 @@
 
     // Build the dashboard
     const videoList = videos?.videos || videos?.items || (Array.isArray(videos) ? videos : []);
+    const chartConfigs = buildChartConfigs(analytics, videoList);
+    const chartsHtml = chartConfigs.length > 0
+      ? `
+      <div class="view-section animate-in animate-in-delay-2">
+        <div class="section-header">
+          <h2 class="section-title">Analytics</h2>
+          <span class="section-subtitle">${chartConfigs.length} chart${chartConfigs.length !== 1 ? 's' : ''}</span>
+        </div>
+        <div class="chart-grid">
+          ${chartConfigs.map(c => `
+            <div class="chart-container">
+              <div class="chart-title">${c.title}</div>
+              <div class="chart-wrapper"><canvas id="${c.id}"></canvas></div>
+            </div>
+          `).join('')}
+        </div>
+      </div>`
+      : '';
 
     container.innerHTML = `
       <div class="view-section animate-in">
@@ -106,29 +149,7 @@
       <div class="view-section animate-in animate-in-delay-1">
         ${renderStatsRow(channel, analytics)}
       </div>
-      <div class="view-section animate-in animate-in-delay-2">
-        <div class="section-header">
-          <h2 class="section-title">Analytics</h2>
-        </div>
-        <div class="chart-grid">
-          <div class="chart-container">
-            <div class="chart-title">Views Timeline</div>
-            <div class="chart-wrapper"><canvas id="chart-views-timeline"></canvas></div>
-          </div>
-          <div class="chart-container">
-            <div class="chart-title">Top Videos by Views</div>
-            <div class="chart-wrapper"><canvas id="chart-top-videos"></canvas></div>
-          </div>
-          <div class="chart-container">
-            <div class="chart-title">Upload Frequency</div>
-            <div class="chart-wrapper"><canvas id="chart-upload-freq"></canvas></div>
-          </div>
-          <div class="chart-container">
-            <div class="chart-title">Engagement Distribution</div>
-            <div class="chart-wrapper"><canvas id="chart-engagement"></canvas></div>
-          </div>
-        </div>
-      </div>
+      ${chartsHtml}
       <div class="view-section animate-in animate-in-delay-3">
         <div class="section-header">
           <h2 class="section-title">Recent Videos</h2>
@@ -148,8 +169,8 @@
       });
     });
 
-    // Render charts
-    renderCharts(analytics, videoList);
+    // Render charts (only those with data)
+    renderCharts(chartConfigs);
   }
 
   // --- Channel Header ---
@@ -184,14 +205,14 @@
     const views = channel.view_count ?? channel.total_views ?? channel.views ?? 0;
     const videoCount = channel.video_count ?? channel.videos ?? 0;
 
-    // Calculate engagement rate from analytics or estimate
-    let engagement = 0;
-    if (analytics && analytics.avg_engagement_rate) {
-      engagement = analytics.avg_engagement_rate;
-    } else if (analytics && analytics.engagement_rate) {
-      engagement = analytics.engagement_rate;
+    // Calculate engagement rate from analytics (already a percentage from API)
+    let engagementDisplay = '—';
+    if (analytics && analytics.engagement_rate != null) {
+      engagementDisplay = Number(analytics.engagement_rate).toFixed(2) + '%';
+    } else if (analytics && analytics.avg_engagement_rate != null) {
+      const rate = analytics.avg_engagement_rate;
+      engagementDisplay = (rate <= 1 ? rate * 100 : rate).toFixed(2) + '%';
     }
-    const engagementDisplay = engagement ? (engagement * 100).toFixed(2) + '%' : '—';
 
     return `
       <div class="stats-row stagger-in">
@@ -219,91 +240,136 @@
     `;
   }
 
+  // --- Chart data helpers ---
+  function extractLabelsData(obj) {
+    if (!obj) return null;
+    if (obj.labels && Array.isArray(obj.data) && obj.labels.length > 0) {
+      return { labels: obj.labels, data: obj.data };
+    }
+    if (Array.isArray(obj) && obj.length > 0) {
+      return {
+        labels: obj.map(t => t.date || t.label || ''),
+        data: obj.map(t => t.views || t.value || 0),
+      };
+    }
+    if (typeof obj === 'object' && !obj.labels) {
+      const keys = Object.keys(obj);
+      if (keys.length > 0) {
+        return { labels: keys, data: Object.values(obj) };
+      }
+    }
+    return null;
+  }
+
+  function hasValidChartData(labels, data) {
+    return labels && labels.length > 0 && data && data.some(v => Number(v) > 0);
+  }
+
+  function buildChartConfigs(analytics, videos) {
+    const configs = [];
+    const videoList = videos || [];
+
+    // Views timeline
+    let timeline = extractLabelsData(analytics?.views_timeline);
+    if (!timeline && videoList.length > 0) {
+      const sorted = [...videoList].sort((a, b) => new Date(a.published_at || 0) - new Date(b.published_at || 0));
+      timeline = {
+        labels: sorted.map(v => {
+          const d = new Date(v.published_at);
+          return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+        }),
+        data: sorted.map(v => v.view_count || v.views || 0),
+      };
+    }
+    if (timeline && hasValidChartData(timeline.labels, timeline.data)) {
+      configs.push({ id: 'chart-views-timeline', title: 'Views Timeline', type: 'line', ...timeline });
+    }
+
+    // Top videos
+    if (videoList.length > 0) {
+      const sorted = [...videoList]
+        .sort((a, b) => (b.view_count || b.views || 0) - (a.view_count || a.views || 0))
+        .slice(0, 8);
+      const labels = sorted.map(v => {
+        const t = v.title || 'Untitled';
+        return t.length > 40 ? t.substring(0, 40) + '…' : t;
+      });
+      const data = sorted.map(v => v.view_count || v.views || 0);
+      if (hasValidChartData(labels, data)) {
+        configs.push({ id: 'chart-top-videos', title: 'Top Videos by Views', type: 'hbar', labels, data });
+      }
+    }
+
+    // Upload frequency
+    let uploadFreq = extractLabelsData(analytics?.upload_frequency);
+    if (!uploadFreq && videoList.length > 0) {
+      const monthCounts = {};
+      videoList.forEach(v => {
+        const d = new Date(v.published_at);
+        if (!isNaN(d.getTime())) {
+          const key = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+          monthCounts[key] = (monthCounts[key] || 0) + 1;
+        }
+      });
+      uploadFreq = { labels: Object.keys(monthCounts), data: Object.values(monthCounts) };
+    }
+    if (uploadFreq && hasValidChartData(uploadFreq.labels, uploadFreq.data)) {
+      configs.push({ id: 'chart-upload-freq', title: 'Upload Frequency', type: 'bar', ...uploadFreq });
+    }
+
+    // Category distribution
+    let categories = extractLabelsData(analytics?.category_distribution);
+    if (!categories && videoList.length > 0) {
+      const totalLikes = videoList.reduce((s, v) => s + (v.like_count || v.likes || 0), 0);
+      const totalComments = videoList.reduce((s, v) => s + (v.comment_count || v.comments || 0), 0);
+      const totalViews = videoList.reduce((s, v) => s + (v.view_count || v.views || 0), 0);
+      const passive = Math.max(0, totalViews - totalLikes - totalComments);
+      if (totalLikes + totalComments > 0) {
+        categories = {
+          labels: ['Likes', 'Comments', 'Passive Views'],
+          data: [totalLikes, totalComments, passive],
+        };
+      }
+    }
+    if (categories && hasValidChartData(categories.labels, categories.data)) {
+      configs.push({ id: 'chart-engagement', title: 'Engagement Distribution', type: 'doughnut', ...categories });
+    }
+
+    return configs;
+  }
+
   // --- Render Charts ---
-  function renderCharts(analytics, videos) {
-    // Destroy old charts
+  function renderCharts(chartConfigs) {
     window.Charts.destroyAll();
+    if (!chartConfigs || chartConfigs.length === 0) return;
 
-    // 1. Views Timeline
-    try {
-      if (analytics && analytics.views_timeline) {
-        const timeline = analytics.views_timeline;
-        const labels = timeline.map(t => t.date || t.label || '');
-        const data = timeline.map(t => t.views || t.value || 0);
-        window.Charts.createLineChart('chart-views-timeline', labels, [
-          { label: 'Views', data, color: '#ff2d55' }
-        ]);
-      } else if (videos && videos.length > 0) {
-        // Fallback: use video view counts in reverse chronological order
-        const sorted = [...videos].sort((a, b) => new Date(a.published_at || 0) - new Date(b.published_at || 0));
-        const labels = sorted.map(v => {
-          const d = new Date(v.published_at);
-          return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        });
-        const data = sorted.map(v => v.view_count || v.views || 0);
-        window.Charts.createLineChart('chart-views-timeline', labels, [
-          { label: 'Views per Video', data, color: '#ff2d55' }
-        ]);
-      }
-    } catch (e) { console.warn('Views timeline chart error:', e); }
-
-    // 2. Top Videos (horizontal bar)
-    try {
-      const videoList = videos || [];
-      if (videoList.length > 0) {
-        const sorted = [...videoList]
-          .sort((a, b) => (b.view_count || b.views || 0) - (a.view_count || a.views || 0))
-          .slice(0, 8);
-        const labels = sorted.map(v => {
-          const t = v.title || 'Untitled';
-          return t.length > 40 ? t.substring(0, 40) + '…' : t;
-        });
-        const data = sorted.map(v => v.view_count || v.views || 0);
-        window.Charts.createHorizontalBarChart('chart-top-videos', labels, data, { dataLabel: 'Views' });
-      }
-    } catch (e) { console.warn('Top videos chart error:', e); }
-
-    // 3. Upload Frequency
-    try {
-      if (analytics && analytics.upload_frequency) {
-        const freq = analytics.upload_frequency;
-        const labels = Object.keys(freq);
-        const data = Object.values(freq);
-        window.Charts.createBarChart('chart-upload-freq', labels, data, { dataLabel: 'Videos' });
-      } else if (videos && videos.length > 0) {
-        // Fallback: group by month
-        const monthCounts = {};
-        videos.forEach(v => {
-          const d = new Date(v.published_at);
-          if (!isNaN(d.getTime())) {
-            const key = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-            monthCounts[key] = (monthCounts[key] || 0) + 1;
+    // Defer until canvas elements are laid out
+    requestAnimationFrame(() => {
+      chartConfigs.forEach(cfg => {
+        try {
+          switch (cfg.type) {
+            case 'line':
+              window.Charts.createLineChart(cfg.id, cfg.labels, [
+                { label: 'Views', data: cfg.data, color: '#ff2d55' },
+              ]);
+              break;
+            case 'hbar':
+              window.Charts.createHorizontalBarChart(cfg.id, cfg.labels, cfg.data, { dataLabel: 'Views' });
+              break;
+            case 'bar':
+              window.Charts.createBarChart(cfg.id, cfg.labels, cfg.data, { dataLabel: 'Uploads' });
+              break;
+            case 'doughnut':
+              window.Charts.createDoughnutChart(cfg.id, cfg.labels, cfg.data);
+              break;
           }
-        });
-        const labels = Object.keys(monthCounts);
-        const data = Object.values(monthCounts);
-        window.Charts.createBarChart('chart-upload-freq', labels, data, { dataLabel: 'Uploads' });
-      }
-    } catch (e) { console.warn('Upload frequency chart error:', e); }
-
-    // 4. Engagement / Category Distribution
-    try {
-      if (analytics && analytics.category_distribution) {
-        const dist = analytics.category_distribution;
-        const labels = Object.keys(dist);
-        const data = Object.values(dist);
-        window.Charts.createDoughnutChart('chart-engagement', labels, data);
-      } else if (videos && videos.length > 0) {
-        // Fallback: engagement breakdown (likes vs comments vs views ratio)
-        const totalLikes = videos.reduce((s, v) => s + (v.like_count || v.likes || 0), 0);
-        const totalComments = videos.reduce((s, v) => s + (v.comment_count || v.comments || 0), 0);
-        const totalViews = videos.reduce((s, v) => s + (v.view_count || v.views || 0), 0);
-        window.Charts.createDoughnutChart('chart-engagement',
-          ['Likes', 'Comments', 'Passive Views'],
-          [totalLikes, totalComments, Math.max(0, totalViews - totalLikes - totalComments)]
-        );
-      }
-    } catch (e) { console.warn('Engagement chart error:', e); }
+        } catch (e) {
+          console.warn(`Chart ${cfg.id} error:`, e);
+          const container = document.getElementById(cfg.id)?.closest('.chart-container');
+          if (container) container.remove();
+        }
+      });
+    });
   }
 
   // --- Analyze from suggestion ---

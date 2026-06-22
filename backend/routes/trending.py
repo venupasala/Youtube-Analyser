@@ -75,6 +75,10 @@ async def get_trending(
     max_results: int = Query(default=25, ge=1, le=50),
 ):
     """Fetch currently trending (most popular) videos from YouTube."""
+    # Treat 0 / empty as "all categories"
+    if category_id in (None, "", "0"):
+        category_id = None
+
     try:
         videos = await youtube_service.get_trending_videos(
             region=region,

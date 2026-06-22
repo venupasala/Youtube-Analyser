@@ -137,7 +137,12 @@
   }
 
   async function getTrending(region = 'US', categoryId = 0, maxResults = 25) {
-    return apiRequest(`/trending${qs({ region, category_id: categoryId, max_results: maxResults })}`);
+    const params = { region, max_results: maxResults };
+    // "All" category is 0 — omit category_id so YouTube returns all trending videos
+    if (categoryId !== 0 && categoryId !== '0' && categoryId != null) {
+      params.category_id = String(categoryId);
+    }
+    return apiRequest(`/trending${qs(params)}`);
   }
 
   async function getRegions() {

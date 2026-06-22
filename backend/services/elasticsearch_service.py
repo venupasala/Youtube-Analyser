@@ -117,7 +117,7 @@ class ElasticsearchService:
         self,
         query: str,
         page: int = 1,
-        per_page: int = 20,
+        per_page: int = 25,
     ) -> dict[str, Any]:
         """Full-text multi_match search on title + description with pagination."""
         from_ = (page - 1) * per_page
